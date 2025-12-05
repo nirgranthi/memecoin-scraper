@@ -1,2 +1,1 @@
-# memecoin-scraper
-Download full history of OHLCV data of a solana based memecoin which can be used to thoroughly analyse it by an AI and help you decide if you should invest or not
+This source code is for evaluation and portfolio purposes only. Commercial use, modification, or distribution is strictly prohibited without purchasing a license. Contact me for licensing inquiries.
