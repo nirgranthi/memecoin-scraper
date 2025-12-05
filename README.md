@@ -52,7 +52,8 @@ Perform a technical analysis on this JSON data.
 
 
 ## Visualizing the data
-* Once you have the json file, head here <a href="https://nirgranthi.github.io/memecoin-scraper/" target="_blank"><img src="https://img.shields.io/badge/🚀_Live_Demo-Start_Here-3b82f6?style=for-the-badge&logo=github&logoColor=white" alt="Live Demo" height="40" /></a>
+* Once you have the json file, head here
+<a href="https://nirgranthi.github.io/memecoin-scraper/" target="_blank"><img src="https://img.shields.io/badge/🚀_Live_Demo-Start_Here-3b82f6?style=for-the-badge&logo=github&logoColor=white" alt="Live Demo" height="40" /></a>
 * Upload the json file by clicking "Upload JSON" on the top, done.
 * You will get a dexscreener inspired candle chart.
 
