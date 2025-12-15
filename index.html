@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real/Sol - Dexscreener Style</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fixed version to 4.2.0 to prevent API breaking changes -->
+    <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        body {
+            background-color: #11121b; /* Dexscreener dark bg */
+            color: #d1d4dc;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .text-up { color: #00c853; }
+        .text-down { color: #ff3d00; }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 600px;
+        }
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #11121b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a2e39; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #363a45; 
+        }
+        .btn-action {
+            background-color: #2a2e39;
+            color: #d1d4dc;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+        }
+        .btn-action:hover {
+            background-color: #363a45;
+        }
+        .btn-active {
+            background-color: #7f1d1d !important; /* Red background for active lock state */
+            color: white !important;
+        }
+        .copy-feedback {
+            animation: fadeOut 1s forwards;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header / Top Bar -->
+    <div class="border-b border-gray-800 p-4 flex items-center justify-between bg-[#161721]">
+        <div class="flex items-center gap-4">
+            <!-- Icon Placeholder -->
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
+                REAL
+            </div>
+            
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-bold text-white text-lg tracking-wide">REAL / SOL</h1>
+                    <span id="timeframeDisplay" class="text-xs bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">5m</span>
+                    
+                    <!-- Upload Button -->
+                    <label class="btn-action ml-4">
+                        <span>📂 Upload JSON</span>
+                        <input type="file" id="fileInput" accept=".json" class="hidden" />
+                    </label>
+
+                    <!-- Static Scale Button -->
+                    <button id="staticBtn" class="btn-action ml-2">
+                        <span>🔒 Static Scale</span>
+                    </button>
+                </div>
+                <div class="flex items-center gap-3 text-sm mt-1">
+                    <span class="text-gray-400">Price:</span>
+                    <span id="priceDisplay" class="font-mono text-lg font-bold text-up">---</span>
+                    
+                    <span class="text-gray-400 ml-2">24h Change:</span>
+                    <span id="changeDisplay" class="font-mono">---</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-right hidden sm:block">
+            <div class="text-xs text-gray-500 uppercase mb-1">Total Volume</div>
+            <div id="volDisplay" class="font-mono text-white">---</div>
+        </div>
+    </div>
+
+    <!-- Main Chart Area -->
+    <div class="flex-1 relative flex">
+        <!-- Sidebar (Optional Details) -->
+        <div class="hidden md:block w-64 border-r border-gray-800 bg-[#161721] p-4 text-sm overflow-y-auto">
+            <h3 class="text-gray-500 uppercase text-xs font-bold mb-4">Token Info</h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <div class="text-gray-500 text-xs flex justify-between">
+                        <span>Token Address</span>
+                        <span class="text-[10px] text-gray-600">(Click to copy)</span>
+                    </div>
+                    <div class="font-mono text-xs text-blue-400 break-all cursor-pointer hover:underline hover:text-blue-300 transition-colors" id="tokenAddr" title="Click to copy">---</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 text-xs flex justify-between">
+                        <span>Pair Address</span>
+                        <span class="text-[10px] text-gray-600">(Click to copy)</span>
+                    </div>
+                    <div class="font-mono text-xs text-blue-400 break-all cursor-pointer hover:underline hover:text-blue-300 transition-colors" id="pairAddr" title="Click to copy">---</div>
+                </div>
+                
+                <div class="pt-4 border-t border-gray-800">
+                     <h3 class="text-gray-500 uppercase text-xs font-bold mb-2">Liquidity & Stats</h3>
+                     <div class="flex justify-between py-1">
+                        <span class="text-gray-400">Total Vol</span>
+                        <span id="sidebarVol" class="text-white font-mono">---</span>
+                    </div>
+                </div>
+
+                <!-- Prediction Algo Section -->
+                <div class="mt-6 p-4 bg-gray-800/30 border border-gray-700 rounded">
+                    <h3 class="text-gray-400 uppercase text-[10px] font-bold mb-2 tracking-wider">Algo Prediction (RSI)</h3>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs text-gray-500">RSI (14):</span>
+                        <span id="rsiValue" class="text-xs font-mono font-bold text-white">--</span>
+                    </div>
+                    <div id="predictionBadge" class="text-center py-1.5 px-2 rounded text-xs font-bold bg-gray-700 text-gray-300">
+                        NEUTRAL
+                    </div>
+                    <p class="text-[10px] text-gray-600 mt-2 leading-tight">
+                        Based on Relative Strength Index (RSI). <br>
+                        >70: Potential Drop <br>
+                        <30: Potential Pump
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- The Chart -->
+        <div id="chart" class="flex-1 h-full w-full bg-[#11121b]"></div>
+    </div>
+
+    <script>
+        // ---------------------------------------------------------
+        // 1. CHART SETUP (Lightweight Charts)
+        // ---------------------------------------------------------
+        const chartContainer = document.getElementById('chart');
+        
+        const chart = LightweightCharts.createChart(chartContainer, {
+            layout: {
+                background: { color: '#11121b' },
+                textColor: '#9b9ca1',
+            },
+            grid: {
+                vertLines: { color: '#1f2937' },
+                horzLines: { color: '#1f2937' },
+            },
+            crosshair: {
+                mode: LightweightCharts.CrosshairMode.Normal,
+            },
+            rightPriceScale: {
+                borderColor: '#1f2937',
+                autoScale: true, // Default enabled
+            },
+            timeScale: {
+                borderColor: '#1f2937',
+                timeVisible: true,
+                secondsVisible: false,
+            },
+            // FIX: Enable Vertical Dragging so user can pan/zoom Y-axis in static mode
+            handleScroll: {
+                mouseWheel: true,
+                pressedMouseMove: true,
+                vertMouseDrag: true, // Enabled vertical drag
+                vertTouchDrag: true, // Enabled touch vertical drag
+            },
+        });
+
+        // Add Candlestick Series
+        const candlestickSeries = chart.addCandlestickSeries({
+            upColor: '#00c853',
+            downColor: '#ff3d00',
+            borderVisible: false,
+            wickUpColor: '#00c853',
+            wickDownColor: '#ff3d00',
+        });
+
+        // Add Volume Series (Histogram)
+        const volumeSeries = chart.addHistogramSeries({
+            priceFormat: { type: 'volume' },
+            priceScaleId: '', // Overlay on same scale
+        });
+        
+        volumeSeries.priceScale().applyOptions({
+            scaleMargins: {
+                top: 0.85, // Push to bottom
+                bottom: 0,
+            },
+        });
+
+        // Resize Handling
+        new ResizeObserver(entries => {
+            if (entries.length === 0 || entries[0].target !== chartContainer) { return; }
+            const newRect = entries[0].contentRect;
+            chart.applyOptions({ height: newRect.height, width: newRect.width });
+        }).observe(chartContainer);
+
+
+        // ---------------------------------------------------------
+        // 2. DATA LOGIC & ALGORITHMS
+        // ---------------------------------------------------------
+
+        // Helper: Copy to Clipboard
+        function copyToClipboard(text, element) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            
+            // Visual feedback
+            const originalText = element.innerText;
+            element.innerText = "Copied!";
+            element.classList.remove('text-blue-400');
+            element.classList.add('text-green-400');
+            
+            setTimeout(() => {
+                element.innerText = originalText;
+                element.classList.remove('text-green-400');
+                element.classList.add('text-blue-400');
+            }, 1000);
+        }
+
+        // Static Mode Logic
+        const staticBtn = document.getElementById('staticBtn');
+        let isStaticMode = false;
+
+        staticBtn.addEventListener('click', () => {
+            isStaticMode = !isStaticMode;
+            
+            // Toggle Auto Scale on the main price scale
+            chart.priceScale('right').applyOptions({
+                autoScale: !isStaticMode
+            });
+
+            // Update Button UI
+            if (isStaticMode) {
+                staticBtn.classList.add('btn-active');
+                staticBtn.innerHTML = `<span>🔓 Enable Auto-Scale</span>`;
+            } else {
+                staticBtn.classList.remove('btn-active');
+                staticBtn.innerHTML = `<span>🔒 Static Scale</span>`;
+            }
+        });
+
+        // Default Data (Reduced count for cleaner initial file)
+        const defaultData = {
+            "meta": {
+                "name": "real",
+                "symbol": "real",
+                "token_address": "FFBmwqt8ScPuDFvaKDYxsLL98v46LB6b3iupXTEXpump",
+                "pair_address": "5mb4yzU9pszE1rcq8GyBr3otyPxSM3VNsP9p2iZbnKAh",
+                "timeframe": "5m"
+            },
+            "candles": [
+                {"timestamp": 1764927900,"open": 0.00022435325646533177,"high": 0.00025961037820263643,"low": 0.00022435325646533177,"close": 0.0002475494647712746,"volume": 3217.1430298491837},
+                {"timestamp": 1764928200,"open": 0.0002475494647712746,"high": 0.0002475494647712746,"low": 0.00023659852456530653,"close": 0.00023976402538265865,"volume": 621.581941560126},
+                {"timestamp": 1764928500,"open": 0.00023976402538265865,"high": 0.00023976402538265865,"low": 0.00023137462439393728,"close": 0.0002314028131342239,"volume": 677.9512661382217},
+                {"timestamp": 1764928800,"open": 0.0002314028131342239,"high": 0.00023538336210293708,"low": 0.0002314028131342239,"close": 0.0002344889614943598,"volume": 119.00664760626998},
+                {"timestamp": 1764929100,"open": 0.0002344889614943598,"high": 0.00023587937537017015,"low": 0.0002312931851281254,"close": 0.00023587937537017015,"volume": 626.9158467250048},
+                {"timestamp": 1764929400,"open": 0.00023587937537017015,"high": 0.00023587937537017015,"low": 0.0002267510542049899,"close": 0.0002267510542049899,"volume": 772.2058470118309},
+                {"timestamp": 1764929700,"open": 0.0002267510542049899,"high": 0.00022982914821681377,"low": 0.0002216666025763588,"close": 0.00022470541382490388,"volume": 463.82411841508303},
+                {"timestamp": 1764930000,"open": 0.00022470541382490388,"high": 0.00022470541382490388,"low": 0.00022188323739833558,"close": 0.00022352143516289906,"volume": 24.07646733235938},
+                {"timestamp": 1764930300,"open": 0.00022352143516289906,"high": 0.0002241199025105903,"low": 0.0002226716573597282,"close": 0.0002226716573597282,"volume": 111.7529124569652},
+                {"timestamp": 1764930600,"open": 0.0002226716573597282,"high": 0.0002290776052999874,"low": 0.00022248895043583563,"close": 0.0002290776052999874,"volume": 369.1608949667343},
+                {"timestamp": 1764930900,"open": 0.0002290776052999874,"high": 0.0002313106728564288,"low": 0.00022736167041371733,"close": 0.00022736167041371733,"volume": 352.8726409857965},
+                {"timestamp": 1764931200,"open": 0.00022736167041371733,"high": 0.00026000514915222307,"low": 0.00022736167041371733,"close": 0.000252708581212667,"volume": 5030.460087269517},
+                {"timestamp": 1764931500,"open": 0.000252708581212667,"high": 0.0002590857831749642,"low": 0.0002494028339547467,"close": 0.00025446667511697026,"volume": 568.6295699545545},
+                {"timestamp": 1764931800,"open": 0.00025446667511697026,"high": 0.00025446667511697026,"low": 0.00023806024686845128,"close": 0.00023806024686845128,"volume": 919.7310749942409},
+                {"timestamp": 1764932100,"open": 0.00023806024686845128,"high": 0.00025217682711313927,"low": 0.00023539155330653557,"close": 0.00025217682711313927,"volume": 1402.2163415003126},
+                {"timestamp": 1764932400,"open": 0.00025217682711313927,"high": 0.00026347981505234425,"low": 0.00025217682711313927,"close": 0.00025483239731172354,"volume": 752.7748590093371},
+                {"timestamp": 1764932700,"open": 0.00025483239731172354,"high": 0.0002674139423966087,"low": 0.00024262048065677562,"close": 0.00025355533091767844,"volume": 1768.4009211334812},
+                {"timestamp": 1764933000,"open": 0.00025355533091767844,"high": 0.00025403174515573035,"low": 0.0002492089610523058,"close": 0.00025403174515573035,"volume": 121.02691023464229},
+                {"timestamp": 1764933300,"open": 0.00025403174515573035,"high": 0.00025427914160417917,"low": 0.00024571427731582006,"close": 0.00024713705229146193,"volume": 589.8442830743422},
+                {"timestamp": 1764933600,"open": 0.00024713705229146193,"high": 0.00024713705229146193,"low": 0.0002329521474896796,"close": 0.0002367401068598817,"volume": 1275.3066706276004},
+                {"timestamp": 1764933900,"open": 0.0002367401068598817,"high": 0.0002387672935086548,"low": 0.00022784209149553808,"close": 0.00022913008683958706,"volume": 786.07580043787},
+                {"timestamp": 1764934200,"open": 0.00022913008683958706,"high": 0.00023240607278035,"low": 0.0002088989654664947,"close": 0.0002088989654664947,"volume": 3100.8340392462437},
+                {"timestamp": 1764934500,"open": 0.0002088989654664947,"high": 0.00021006244953608613,"low": 0.00019693111193287973,"close": 0.00019693111193287973,"volume": 2493.2109005714783},
+                {"timestamp": 1764934800,"open": 0.00019693111193287973,"high": 0.0001979362761062733,"low": 0.00018977305295287468,"close": 0.0001979362761062733,"volume": 2388.6807942609644},
+                {"timestamp": 1764935100,"open": 0.0001979362761062733,"high": 0.0001979362761062733,"low": 0.00018680244702200293,"close": 0.00019020713889184227,"volume": 942.7607094695632},
+                {"timestamp": 1764935400,"open": 0.00019020713889184227,"high": 0.0001962085414875259,"low": 0.00017683474960557508,"close": 0.0001823045477178218,"volume": 1621.858833578907},
+                {"timestamp": 1764935700,"open": 0.0001823045477178218,"high": 0.00019168626178645275,"low": 0.0001772997657873458,"close": 0.0001811590809888057,"volume": 1730.0077068798387},
+                {"timestamp": 1764936000,"open": 0.0001811590809888057,"high": 0.00019836153931270808,"low": 0.0001795263497144039,"close": 0.0001966890904085194,"volume": 1043.6021548380984},
+                {"timestamp": 1764936300,"open": 0.0001966890904085194,"high": 0.0001966890904085194,"low": 0.00019260898652952225,"close": 0.00019497588067281826,"volume": 412.8499203560056},
+                {"timestamp": 1764936600,"open": 0.00019497588067281826,"high": 0.00019497588067281826,"low": 0.000189286783754634,"close": 0.00019497588067281826,"volume": 322.46990974944805},
+                {"timestamp": 1764936900,"open": 0.00019450615325117761,"high": 0.00021130549206629275,"low": 0.00019450615325117761,"close": 0.0002103532118411202,"volume": 882.0479357872517},
+                {"timestamp": 1764937200,"open": 0.0002103532118411202,"high": 0.00021141555116712508,"low": 0.00020630269238636943,"close": 0.00020630269238636943,"volume": 593.8466574656536},
+                {"timestamp": 1764937500,"open": 0.00020630269238636943,"high": 0.00020630269238636943,"low": 0.00019756456280139854,"close": 0.0002036336477244724,"volume": 884.3731947368026},
+                {"timestamp": 1764937800,"open": 0.0002036336477244724,"high": 0.0002036336477244724,"low": 0.00019381457305464998,"close": 0.0002016197197989054,"volume": 1131.1443048856247}
+            ]
+        };
+
+        // File Input Handler
+        const fileInput = document.getElementById('fileInput');
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const json = JSON.parse(event.target.result);
+                    renderChart(json);
+                } catch (err) {
+                    alert('Invalid JSON file format');
+                    console.error(err);
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // ---------------------------------------------------------
+        // 3. RENDER FUNCTION
+        // ---------------------------------------------------------
+        function renderChart(data) {
+            // Update Info in Sidebar
+            if(data.meta) {
+                const tAddr = document.getElementById('tokenAddr');
+                const pAddr = document.getElementById('pairAddr');
+                
+                tAddr.innerText = data.meta.token_address || '---';
+                pAddr.innerText = data.meta.pair_address || '---';
+                
+                // Add click-to-copy listeners
+                tAddr.onclick = () => copyToClipboard(data.meta.token_address, tAddr);
+                pAddr.onclick = () => copyToClipboard(data.meta.pair_address, pAddr);
+
+                // Update Timeframe Display
+                if (data.meta.timeframe) {
+                    document.getElementById('timeframeDisplay').innerText = data.meta.timeframe;
+                }
+            }
+
+            // CRITICAL FIX: Ensure Sort & Unique Timestamps
+            // 1. Sort ascending by timestamp
+            let candles = [...data.candles].sort((a, b) => a.timestamp - b.timestamp);
+
+            // 2. Remove duplicates (keep first occurrence)
+            const uniqueCandles = [];
+            const timeMap = new Map();
+            
+            for (const c of candles) {
+                // Ensure timestamp is valid number
+                if (!timeMap.has(c.timestamp) && typeof c.timestamp === 'number') {
+                    uniqueCandles.push(c);
+                    timeMap.set(c.timestamp, true);
+                }
+            }
+            candles = uniqueCandles;
+
+            const candleData = candles.map(c => ({
+                time: c.timestamp,
+                open: c.open,
+                high: c.high,
+                low: c.low,
+                close: c.close
+            }));
+
+            const volumeData = candles.map(c => ({
+                time: c.timestamp,
+                value: c.volume,
+                color: c.close >= c.open ? 'rgba(0, 200, 83, 0.4)' : 'rgba(255, 61, 0, 0.4)'
+            }));
+
+            // Set Data to Series with Error Handling
+            try {
+                candlestickSeries.setData(candleData);
+                volumeSeries.setData(volumeData);
+            } catch (err) {
+                console.error("Chart Render Error:", err);
+                alert("Error rendering chart. Check console for details. (Likely duplicate or unordered timestamps)");
+                return;
+            }
+
+            // Update Header Stats
+            if (candles.length > 0) {
+                const last = candles[candles.length - 1];
+                const prev = candles.length > 1 ? candles[candles.length - 2] : last;
+                
+                const price = last.close;
+                const change = ((price - prev.close) / prev.close) * 100;
+                const totalVol = candles.reduce((acc, c) => acc + c.volume, 0);
+
+                const priceEl = document.getElementById('priceDisplay');
+                const changeEl = document.getElementById('changeDisplay');
+                const volEl = document.getElementById('volDisplay');
+                const sideVolEl = document.getElementById('sidebarVol');
+
+                const formatPrice = (p) => p < 0.01 ? p.toFixed(8) : p.toFixed(4);
+
+                priceEl.innerText = `$${formatPrice(price)}`;
+                changeEl.innerText = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+                
+                if (change >= 0) {
+                    priceEl.className = "font-mono text-lg font-bold text-up";
+                    changeEl.className = "font-mono text-up";
+                } else {
+                    priceEl.className = "font-mono text-lg font-bold text-down";
+                    changeEl.className = "font-mono text-down";
+                }
+
+                const volStr = `$${Math.round(totalVol).toLocaleString()}`;
+                volEl.innerText = volStr;
+                sideVolEl.innerText = volStr;
+
+                // Run Prediction
+                updatePrediction(candles);
+            }
+
+            chart.timeScale().fitContent();
+        }
+
+        // ---------------------------------------------------------
+        // 4. ALGORITHM: RSI PREDICTION
+        // ---------------------------------------------------------
+        function calculateRSI(prices, period = 14) {
+            if (prices.length < period + 1) return 50; // Not enough data
+
+            let gains = 0;
+            let losses = 0;
+
+            // Initial SMA
+            for (let i = 1; i <= period; i++) {
+                const change = prices[i] - prices[i - 1];
+                if (change > 0) gains += change;
+                else losses -= change;
+            }
+
+            let avgGain = gains / period;
+            let avgLoss = losses / period;
+
+            // Smooth Moving Average
+            for (let i = period + 1; i < prices.length; i++) {
+                const change = prices[i] - prices[i - 1];
+                let gain = change > 0 ? change : 0;
+                let loss = change < 0 ? -change : 0;
+
+                avgGain = ((avgGain * (period - 1)) + gain) / period;
+                avgLoss = ((avgLoss * (period - 1)) + loss) / period;
+            }
+
+            if (avgLoss === 0) return 100;
+            const rs = avgGain / avgLoss;
+            return 100 - (100 / (1 + rs));
+        }
+
+        function updatePrediction(candles) {
+            // Extract closing prices
+            const closes = candles.map(c => c.close);
+            const rsi = calculateRSI(closes, 14);
+            
+            const rsiEl = document.getElementById('rsiValue');
+            const badgeEl = document.getElementById('predictionBadge');
+
+            rsiEl.innerText = rsi.toFixed(2);
+
+            // Simple Logic for Signal
+            if (rsi > 70) {
+                badgeEl.innerText = "OVERBOUGHT (SELL)";
+                badgeEl.className = "text-center py-1.5 px-2 rounded text-xs font-bold bg-red-900 text-red-200 border border-red-700";
+            } else if (rsi < 30) {
+                badgeEl.innerText = "OVERSOLD (BUY)";
+                badgeEl.className = "text-center py-1.5 px-2 rounded text-xs font-bold bg-green-900 text-green-200 border border-green-700";
+            } else {
+                badgeEl.innerText = "NEUTRAL (HOLD)";
+                badgeEl.className = "text-center py-1.5 px-2 rounded text-xs font-bold bg-gray-700 text-gray-300 border border-gray-600";
+            }
+        }
+
+        // Initialize with default data
+        renderChart(defaultData);
+
+    </script>
+</body>
+</html>

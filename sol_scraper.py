@@ -12,7 +12,7 @@ TIMEFRAME_MAP = {
 }
 
 def clean_filename(symbol, token_address, timeframe):
-    """Generates a consistent filename."""
+    #Generates a consistent filename
     safe_symbol = "".join([c for c in symbol if c.isalnum() or c in ('_','-')])
     return f"{safe_symbol}_{token_address}_{timeframe}.json"
 
@@ -36,7 +36,7 @@ def get_best_pair(token_address, interactive=False):
         
         best_pair = None
         
-        # Logic: If interactive mode and multiple pairs, ask user.
+        # If interactive mode and multiple pairs, ask user.
         if interactive and len(sorted_pairs) > 1:
             print(f"\nFound {len(sorted_pairs)} pairs. Please select one:")
             for i, pair in enumerate(sorted_pairs[:10]): # Show top 10
@@ -191,7 +191,6 @@ def process_data(token_addr, tf_input, interactive=False):
             print(f"   ⚠️ Error reading file, starting fresh. {e}")
             existing_candles = []
 
-    # 3. Downloading Logic
     new_candles_future = []
     new_candles_history = []
     
@@ -208,7 +207,7 @@ def process_data(token_addr, tf_input, interactive=False):
         print("\n📜 Phase 2: Backfilling History...")
         new_candles_history = fetch_candles(pair_addr, api_tf, aggregate, start_timestamp=min_ts, end_timestamp=None, limit_stop=False)
     
-    # 4. Merging
+    # 3. Merging
     print("\n🔄 Merging datasets...")
     final_dict = {}
 
@@ -237,7 +236,7 @@ def process_data(token_addr, tf_input, interactive=False):
     
     sorted_candles = sorted(final_dict.values(), key=lambda x: x['timestamp'])
     
-    # 5. Save
+    # 4. Save
     output_data = {
         "meta": {
             "name": name,
