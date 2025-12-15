@@ -18,7 +18,6 @@ def clean_filename(symbol, token_address, timeframe):
 
 def get_best_pair(token_address, interactive=False):
     """
-    Finds pairs. 
     If interactive=True and multiple pairs exist, asks user to choose.
     Else, auto-selects highest liquidity.
     """
